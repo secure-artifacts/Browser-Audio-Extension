@@ -52,3 +52,58 @@ npm run build
 
 GitHub Actions 负责生成 ZIP、构建来源证明（Attestation）并上传 Release。来源证明不是杀毒认证，也不是 Chrome Web Store 审核。
 本流程不包含商店上架、CRX 签名或自动更新；平台是否通过审核以实际审核结果为准。
+
+## 如何发布新版本
+
+发布只通过推送 `v*` 标签触发。以修复版本 `v0.2.1` 为例：
+
+1. 修改代码，并把 `manifest.json`、`package.json` 和 `package-lock.json` 的版本号同步改成 `0.2.1`；如果改变了诊断协议版本，也同步修改 `audio-hook.js` 的版本。标签与清单版本不一致会停止构建。
+2. 在项目目录检查、测试并提交。下面是示例文件清单，请按实际改动调整，勿添加密钥或本机配置。
+
+```sh
+git status
+git diff
+npm ci --ignore-scripts
+npm test
+npm run build
+git add manifest.json package.json package-lock.json audio-hook.js background.js page-status.js popup.html popup.css popup.js icons tests scripts README.md
+git commit -m "fix: 描述本次修改"
+git push origin main
+```
+
+3. 创建并推送新标签：
+
+```sh
+git tag -a v0.2.1 -m "Release version 0.2.1"
+git push origin v0.2.1
+```
+
+4. 查看 [Actions](https://github.com/secure-artifacts/Browser-Audio-Extension/actions) 等待成功，再到 [Releases](https://github.com/secure-artifacts/Browser-Audio-Extension/releases) 获取 ZIP。
+
+CI 会测试、构建 `dist/`、把其中的文件打成根目录含 `manifest.json` 的 ZIP、生成最终 ZIP 的 Attestation，再由 `github-actions[bot]` 上传。不要手动创建 Release 或上传、替换下载包，也不要把个人 Token 配置为 Release 上传凭据。
+
+版本号示例：修复问题用 `v0.2.1`，新增功能用 `v0.3.0`，重大不兼容变更用新主版本号。它们都只是例子，请使用实际未发布的新版本号。
+
+### 构建失败时
+
+先在 Actions 查看日志、修复源码或工作流，再提交并推送修复。对于尚未成功发布的失败标签，按流程删除后重新创建；不要覆盖已经成功分发的版本：
+
+```sh
+git tag -d v0.2.1
+git push origin :refs/tags/v0.2.1
+# 确认修复已提交并推送后再执行：
+git tag -a v0.2.1 -m "Release version 0.2.1"
+git push origin v0.2.1
+```
+
+重复检查直到 CI 成功，再提交审核。禁止下载 Actions 中间产物后手工补传到 Release。
+
+### 校验下载文件的来源
+
+安装 GitHub CLI 后，可以对下载的 ZIP 运行（请替换成实际文件名和标签）：
+
+```sh
+gh attestation verify Browser-Audio-Extension-v0.2.0.zip --repo secure-artifacts/Browser-Audio-Extension --signer-workflow secure-artifacts/Browser-Audio-Extension/.github/workflows/release.yml --source-ref refs/tags/v0.2.0 --deny-self-hosted-runners
+```
+
+这验证文件与指定仓库、标签、工作流的构建来源关系，不代表不存在漏洞，也不等于平台审核通过。
