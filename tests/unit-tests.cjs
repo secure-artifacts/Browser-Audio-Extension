@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
+const currentVersion = require('../manifest.json').version;
 const source = fs.readFileSync(path.resolve(__dirname, '../audio-hook.js'), 'utf8');
 const normalized = value => JSON.parse(JSON.stringify(value));
 const quiet = value => {
@@ -114,7 +115,7 @@ async function workerFixture(saved = {}) {
     } },
     action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {}, setTitle: async () => {} },
     tabs: { query: async () => [] },
-    runtime: { id: 'test', getURL: name => 'chrome-extension://test/' + name, getManifest: () => ({ version: '0.2.0' }),
+    runtime: { id: 'test', getURL: name => 'chrome-extension://test/' + name, getManifest: () => ({ version: currentVersion }),
       onMessage: { addListener: value => { listener = value; } } }
   };
   const context = vm.createContext({ chrome });
@@ -204,9 +205,10 @@ test('page override of capture method is detected', () => {
 function summarize(frames, enabled = true) {
   const context = vm.createContext({ frames, enabled });
   vm.runInContext(statusSource, context);
-  return vm.runInContext('summarizeFrames(frames.map(result => ({ result })), enabled, "0.2.0")', context);
+  context.currentVersion = currentVersion;
+  return vm.runInContext('summarizeFrames(frames.map(result => ({ result })), enabled, currentVersion)', context);
 }
-const ready = { version: '0.2.0', available: true, hooked: true, live: 0, processing: 0, unknown: 0, muted: 0, pending: 0, error: null };
+const ready = { version: currentVersion, available: true, hooked: true, live: 0, processing: 0, unknown: 0, muted: 0, pending: 0, error: null };
 test('ready without capture does not claim verified', () => assert.equal(summarize([ready]).code, 'ready'));
 test('all live captured settings false is verified', () => assert.equal(summarize([{ ...ready, live: 1 }]).code, 'verified'));
 test('pending refresh is distinct for ON and OFF', () => {

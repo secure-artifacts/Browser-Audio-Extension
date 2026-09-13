@@ -1,6 +1,8 @@
-# 浏览器拉线助手（测试版）
+# 浏览器拉线助手
 
-适用于 Chromium 系浏览器的 Manifest V3 扩展。安装后默认开启，在普通网页申请麦克风时尝试关闭回声消除、自动增益和降噪，用于 VoiceMeeter／立体声混音传入通话的实验场景。
+当前版本：1.2（内部版本号 1.2.0）。
+
+适用于 Chromium 系浏览器的 Manifest V3 扩展。安装后默认开启，在普通网页申请麦克风时尝试关闭回声消除、自动增益和降噪，用于 VoiceMeeter／立体声混音传入通话的场景。
 
 它调整的是网页采集约束，不修改浏览器 flags 或启动参数，不保证所有网站有效，也不保证对方收到双声道。
 
@@ -55,9 +57,9 @@ GitHub Actions 负责生成 ZIP、构建来源证明（Attestation）并上传 R
 
 ## 如何发布新版本
 
-发布只通过推送 `v*` 标签触发。以修复版本 `v0.2.1` 为例：
+发布只通过推送 `v*` 标签触发。以下以未来修复版本 `v1.2.1` 为例：
 
-1. 修改代码，并把 `manifest.json`、`package.json` 和 `package-lock.json` 的版本号同步改成 `0.2.1`；如果改变了诊断协议版本，也同步修改 `audio-hook.js` 的版本。标签与清单版本不一致会停止构建。
+1. 修改代码，并把 `manifest.json`、`package.json`、`package-lock.json` 和 `audio-hook.js` 的版本号同步改成 `1.2.1`。标签与清单版本不一致会停止构建。
 2. 在项目目录检查、测试并提交。下面是示例文件清单，请按实际改动调整，勿添加密钥或本机配置。
 
 ```sh
@@ -74,26 +76,26 @@ git push origin main
 3. 创建并推送新标签：
 
 ```sh
-git tag -a v0.2.1 -m "Release version 0.2.1"
-git push origin v0.2.1
+git tag -a v1.2.1 -m "Release version 1.2.1"
+git push origin v1.2.1
 ```
 
 4. 查看 [Actions](https://github.com/secure-artifacts/Browser-Audio-Extension/actions) 等待成功，再到 [Releases](https://github.com/secure-artifacts/Browser-Audio-Extension/releases) 获取 ZIP。
 
 CI 会测试、构建 `dist/`、把其中的文件打成根目录含 `manifest.json` 的 ZIP、生成最终 ZIP 的 Attestation，再由 `github-actions[bot]` 上传。不要手动创建 Release 或上传、替换下载包，也不要把个人 Token 配置为 Release 上传凭据。
 
-版本号示例：修复问题用 `v0.2.1`，新增功能用 `v0.3.0`，重大不兼容变更用新主版本号。它们都只是例子，请使用实际未发布的新版本号。
+版本号示例：修复问题用 `v1.2.1`，新增功能用 `v1.3.0`，重大不兼容变更用新主版本号。它们都只是例子，请使用实际未发布的新版本号。
 
 ### 构建失败时
 
 先在 Actions 查看日志、修复源码或工作流，再提交并推送修复。对于尚未成功发布的失败标签，按流程删除后重新创建；不要覆盖已经成功分发的版本：
 
 ```sh
-git tag -d v0.2.1
-git push origin :refs/tags/v0.2.1
+git tag -d v1.2.1
+git push origin :refs/tags/v1.2.1
 # 确认修复已提交并推送后再执行：
-git tag -a v0.2.1 -m "Release version 0.2.1"
-git push origin v0.2.1
+git tag -a v1.2.1 -m "Release version 1.2.1"
+git push origin v1.2.1
 ```
 
 重复检查直到 CI 成功，再提交审核。禁止下载 Actions 中间产物后手工补传到 Release。
@@ -103,7 +105,7 @@ git push origin v0.2.1
 安装 GitHub CLI 后，可以对下载的 ZIP 运行（请替换成实际文件名和标签）：
 
 ```sh
-gh attestation verify Browser-Audio-Extension-v0.2.0.zip --repo secure-artifacts/Browser-Audio-Extension --signer-workflow secure-artifacts/Browser-Audio-Extension/.github/workflows/release.yml --source-ref refs/tags/v0.2.0 --deny-self-hosted-runners
+gh attestation verify Browser-Audio-Extension-v1.2.0.zip --repo secure-artifacts/Browser-Audio-Extension --signer-workflow secure-artifacts/Browser-Audio-Extension/.github/workflows/release.yml --source-ref refs/tags/v1.2.0 --deny-self-hosted-runners
 ```
 
 这验证文件与指定仓库、标签、工作流的构建来源关系，不代表不存在漏洞，也不等于平台审核通过。

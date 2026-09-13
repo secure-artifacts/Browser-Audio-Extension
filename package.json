@@ -1,8 +1,8 @@
 {
   "name": "browser-audio-extension",
-  "version": "0.2.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Experimental browser audio compatibility extension",
+  "description": "Browser audio compatibility extension",
   "engines": { "node": ">=20" },
   "scripts": {
     "test": "node --test tests/unit-tests.cjs tests/build-tests.cjs",

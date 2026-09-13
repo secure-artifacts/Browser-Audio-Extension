@@ -3,7 +3,7 @@
 // Runs at document_start only when enabled. Reload is needed after changing the switch.
 (() => {
   "use strict";
-  const version = "0.2.0";
+  const version = "1.2.0";
   const wrapped = Symbol.for("byUSXiaoxu.audioCompat.v2");
   const diagnosticKey = Symbol.for("byUSXiaoxu.audioCompat.diagnostic");
   if (typeof globalThis[diagnosticKey] === "function") return;
