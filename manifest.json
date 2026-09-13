@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "浏览器拉线助手（测试版）",
+  "version": "0.2.0",
+  "description": "安装后默认开启，尝试关闭普通网页麦克风采集的回声消除、自动增益和降噪。切换后刷新网页。",
+  "minimum_chrome_version": "119",
+  "permissions": ["scripting", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "浏览器拉线助手",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
+}

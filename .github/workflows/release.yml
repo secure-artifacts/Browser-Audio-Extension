@@ -1,0 +1,52 @@
+name: Release Browser Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Package Extension
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          zip -r "../Browser-Audio-Extension-${RELEASE_TAG}.zip" .
+      - name: Verify ZIP
+        run: npm run verify:zip
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'Browser-Audio-Extension-*.zip'
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: 'Browser-Audio-Extension-*.zip'
+          fail_on_unmatched_files: true
+          generate_release_notes: true
