@@ -7,12 +7,13 @@ const currentVersion = require('../manifest.json').version;
 const source = fs.readFileSync(path.resolve(__dirname, '../audio-hook.js'), 'utf8');
 const normalized = value => JSON.parse(JSON.stringify(value));
 const quiet = value => {
-  for (const key of ['echoCancellation', 'autoGainControl', 'noiseSuppression']) assert.equal(value[key].exact, false);
+  assert.equal(value.echoCancellation.exact, 'remote-only');
+  for (const key of ['autoGainControl', 'noiseSuppression']) assert.equal(value[key].exact, false);
 };
 function fixture() {
   let call, applyCall, reject;
   class Track {
-    constructor(kind = 'audio') { this.kind = kind; this.readyState = 'live'; this.enabled = true; this.muted = false; this.settings = { echoCancellation: false, autoGainControl: false, noiseSuppression: false }; }
+    constructor(kind = 'audio') { this.kind = kind; this.readyState = 'live'; this.enabled = true; this.muted = false; this.settings = { echoCancellation: 'remote-only', autoGainControl: false, noiseSuppression: false }; }
     getSettings() { return this.settings; }
     applyConstraints(c) { applyCall = c; return Promise.resolve(); }
     clone() { return new Track(this.kind); }
@@ -35,7 +36,7 @@ function fixture() {
   return { context, navigator, stream, track, Track, snapshot: () => vm.runInContext('globalThis[Symbol.for("byUSXiaoxu.audioCompat.diagnostic")]()', context), get call() { return call; },
     get applyCall() { return applyCall; }, reject(error) { reject = error; } };
 }
-test('audio:true disables three processing requests, preserves returned stream', async () => {
+test('audio:true requests remote-only cancellation without AGC/NS and preserves stream', async () => {
   const f = fixture(); assert.equal(await f.navigator.mediaDevices.getUserMedia({ audio: true }), f.stream); quiet(f.call.audio);
 });
 test('does not mutate frozen source, video or device choice', async () => {
@@ -47,10 +48,10 @@ test('does not mutate frozen source, video or device choice', async () => {
   assert.equal(input.audio.echoCancellation, true); assert.equal(f.call.video, video);
   assert.equal(f.call.audio.deviceId, device); assert.equal(f.call.audio.channelCount, 2); quiet(f.call.audio);
 });
-test('advanced constraints cannot re-enable processing', async () => {
+test('advanced constraints cannot override remote-only cancellation', async () => {
   const f = fixture(); const c = { audio: { advanced: [{ echoCancellation: true, sampleRate: 48000 }, { channelCount: 1 }] } };
   await f.navigator.mediaDevices.getUserMedia(c);
-  assert.equal(f.call.audio.advanced[0].echoCancellation.exact, false);
+  assert.equal(f.call.audio.advanced[0].echoCancellation.exact, 'remote-only');
   assert.equal(c.audio.advanced[0].echoCancellation, true); assert.equal(f.call.audio.advanced[0].sampleRate, 48000);
 });
 test('video-only and audio:false requests pass through unchanged', async () => {
@@ -62,6 +63,19 @@ test('video-only and audio:false requests pass through unchanged', async () => {
 test('native errors propagate without retry or fake success', async () => {
   const f = fixture(); const error = new Error('NotAllowedError'); f.reject(error);
   await assert.rejects(f.navigator.mediaDevices.getUserMedia({ audio: true }), value => value === error);
+});
+test('unsupported remote-only never silently falls back to cancellation disabled', async () => {
+  const f = fixture(); const error = new Error('Unsupported echoCancellation'); error.name = 'OverconstrainedError'; f.reject(error);
+  await assert.rejects(f.navigator.mediaDevices.getUserMedia({ audio: true }), value => value === error);
+  quiet(f.call.audio);
+  assert.equal(f.snapshot().error, 'OverconstrainedError');
+});
+test('explicit false/true/all or remote-only requests are normalized without mutation', async () => {
+  for (const value of [false, true, 'all', 'remote-only', { exact: false }]) {
+    const f = fixture(); const constraints = { audio: { echoCancellation: value } };
+    await f.navigator.mediaDevices.getUserMedia(constraints);
+    quiet(f.call.audio); assert.equal(constraints.audio.echoCancellation, value);
+  }
 });
 test('microphone track applyConstraints is protected, including empty constraints', async () => {
   const f = fixture(); await f.navigator.mediaDevices.getUserMedia({ audio: true });
@@ -175,12 +189,22 @@ test('native diagnostic has only non-identifying summary fields', async () => {
 test('native settings remain authoritative even when page overwrites getSettings', async () => {
   const f = fixture(); await f.navigator.mediaDevices.getUserMedia({ audio: true });
   f.track.settings.echoCancellation = true;
-  f.Track.prototype.getSettings = () => ({ echoCancellation: false, autoGainControl: false, noiseSuppression: false });
+  f.Track.prototype.getSettings = () => ({ echoCancellation: 'remote-only', autoGainControl: false, noiseSuppression: false });
   assert.equal(f.snapshot().processing, 1);
 });
-test('missing browser settings never report fully disabled', async () => {
+test('missing browser settings never report remote-only verified', async () => {
   const f = fixture(); await f.navigator.mediaDevices.getUserMedia({ audio: true });
   delete f.track.settings.autoGainControl; assert.equal(f.snapshot().unknown, 1);
+});
+test('disabled, broad, and unknown echo modes cannot report target settings', async () => {
+  for (const value of [false, true, 'all', 'unexpected-mode']) {
+    const f = fixture(); await f.navigator.mediaDevices.getUserMedia({ audio: true });
+    f.track.settings.echoCancellation = value;
+    assert.equal(f.snapshot().processing, 1);
+  }
+  const f = fixture(); await f.navigator.mediaDevices.getUserMedia({audio:true});
+  delete f.track.settings.echoCancellation;
+  assert.equal(f.snapshot().unknown, 1);
 });
 test('stopped tracks are removed from live diagnosis', async () => {
   const f = fixture(); await f.navigator.mediaDevices.getUserMedia({ audio: true });
@@ -210,7 +234,7 @@ function summarize(frames, enabled = true) {
 }
 const ready = { version: currentVersion, available: true, hooked: true, live: 0, processing: 0, unknown: 0, muted: 0, pending: 0, error: null };
 test('ready without capture does not claim verified', () => assert.equal(summarize([ready]).code, 'ready'));
-test('all live captured settings false is verified', () => assert.equal(summarize([{ ...ready, live: 1 }]).code, 'verified'));
+test('all live captured settings matching remote-only is verified', () => assert.equal(summarize([{ ...ready, live: 1 }]).code, 'verified'));
 test('pending refresh is distinct for ON and OFF', () => {
   assert.equal(summarize([]).code, 'reload');
   assert.equal(summarize([ready], false).code, 'reload-off');

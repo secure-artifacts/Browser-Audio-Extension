@@ -1,8 +1,10 @@
 # 浏览器拉线助手
 
-当前版本：1.2（内部版本号 1.2.0）。
+当前版本：1.2.1（远端回声抑制修复）。
 
-适用于 Chromium 系浏览器的 Manifest V3 扩展。安装后默认开启，在普通网页申请麦克风时尝试关闭回声消除、自动增益和降噪，用于 VoiceMeeter／立体声混音传入通话的场景。
+适用于支持 remote-only 音频约束的桌面 Chromium 系浏览器的 Manifest V3 扩展（最低版本 151）。安装后默认开启，在普通网页申请麦克风时启用远端回声抑制，关闭自动增益和降噪，用于 VoiceMeeter／立体声混音传入通话的场景。
+
+1.2.1 将 echoCancellation 从 false 修正为 { exact: "remote-only" }，不再强制关闭所有回声消除。用户已反馈修复后的实际通话测试正常；通话数量、时长和设备覆盖未单独记录，因此不承诺任意数量通话均无回音。此模式不保证对每个标签页单独消除自身声音。不支持此约束时报告采集失败，不静默退回 false 或 true。
 
 它调整的是网页采集约束，不修改浏览器 flags 或启动参数，不保证所有网站有效，也不保证对方收到双声道。
 
@@ -19,10 +21,10 @@
 
 ## 状态与风险
 
-面板能区分等待采集、等待刷新、采集失败、静音、无法确认、检测到音频处理已关闭。
-最后一种状态仅代表已检查的音轨原生设置回报关闭，不证明对方已收到声音，也不保证网站没有后续处理。
+面板能区分等待采集、等待刷新、采集失败、静音、无法确认、远端回声抑制已启用。
+最后一种状态仅代表已检查的音轨原生设置回报 remote-only 且自动增益和降噪为 false，不证明对方已收到声音或实际无回音，也不保证网站没有后续处理。
 
-关闭回声消除可能带来回声、啸叫；建议戴耳机，先低音量测试。
+远端回声抑制并非完整的音频路由隔离，仍可能出现回声、啸叫；建议戴耳机，先低音量测试。
 如果无法使用麦克风，可关闭插件、刷新网页后重试。禁用或卸载后也需要刷新已打开的页面。
 
 ## 隐私与权限
@@ -57,9 +59,9 @@ GitHub Actions 负责生成 ZIP、构建来源证明（Attestation）并上传 R
 
 ## 如何发布新版本
 
-发布只通过推送 `v*` 标签触发。以下以未来修复版本 `v1.2.1` 为例：
+发布只通过推送 `v*` 标签触发。以下以未来修复版本 `v1.2.2` 为例，发布前须完成对应测试：
 
-1. 修改代码，并把 `manifest.json`、`package.json`、`package-lock.json` 和 `audio-hook.js` 的版本号同步改成 `1.2.1`。标签与清单版本不一致会停止构建。
+1. 修改代码，并把 `manifest.json`、`package.json`、`package-lock.json` 和 `audio-hook.js` 的版本号同步改成 `1.2.2`。标签与清单版本不一致会停止构建。
 2. 在项目目录检查、测试并提交。下面是示例文件清单，请按实际改动调整，勿添加密钥或本机配置。
 
 ```sh
@@ -76,26 +78,26 @@ git push origin main
 3. 创建并推送新标签：
 
 ```sh
-git tag -a v1.2.1 -m "Release version 1.2.1"
-git push origin v1.2.1
+git tag -a v1.2.2 -m "Release version 1.2.2"
+git push origin v1.2.2
 ```
 
 4. 查看 [Actions](https://github.com/secure-artifacts/Browser-Audio-Extension/actions) 等待成功，再到 [Releases](https://github.com/secure-artifacts/Browser-Audio-Extension/releases) 获取 ZIP。
 
 CI 会测试、构建 `dist/`、把其中的文件打成根目录含 `manifest.json` 的 ZIP、生成最终 ZIP 的 Attestation，再由 `github-actions[bot]` 上传。不要手动创建 Release 或上传、替换下载包，也不要把个人 Token 配置为 Release 上传凭据。
 
-版本号示例：修复问题用 `v1.2.1`，新增功能用 `v1.3.0`，重大不兼容变更用新主版本号。它们都只是例子，请使用实际未发布的新版本号。
+版本号示例：修复问题用 `v1.2.2`，新增功能用 `v1.3.0`，重大不兼容变更用新主版本号。它们都只是例子，请使用实际未发布的新版本号。
 
 ### 构建失败时
 
 先在 Actions 查看日志、修复源码或工作流，再提交并推送修复。对于尚未成功发布的失败标签，按流程删除后重新创建；不要覆盖已经成功分发的版本：
 
 ```sh
-git tag -d v1.2.1
-git push origin :refs/tags/v1.2.1
+git tag -d v1.2.2
+git push origin :refs/tags/v1.2.2
 # 确认修复已提交并推送后再执行：
-git tag -a v1.2.1 -m "Release version 1.2.1"
-git push origin v1.2.1
+git tag -a v1.2.2 -m "Release version 1.2.2"
+git push origin v1.2.2
 ```
 
 重复检查直到 CI 成功，再提交审核。禁止下载 Actions 中间产物后手工补传到 Release。
@@ -105,7 +107,7 @@ git push origin v1.2.1
 安装 GitHub CLI 后，可以对下载的 ZIP 运行（请替换成实际文件名和标签）：
 
 ```sh
-gh attestation verify Browser-Audio-Extension-v1.2.0.zip --repo secure-artifacts/Browser-Audio-Extension --signer-workflow secure-artifacts/Browser-Audio-Extension/.github/workflows/release.yml --source-ref refs/tags/v1.2.0 --deny-self-hosted-runners
+gh attestation verify Browser-Audio-Extension-v1.2.1.zip --repo secure-artifacts/Browser-Audio-Extension --signer-workflow secure-artifacts/Browser-Audio-Extension/.github/workflows/release.yml --source-ref refs/tags/v1.2.1 --deny-self-hosted-runners
 ```
 
 这验证文件与指定仓库、标签、工作流的构建来源关系，不代表不存在漏洞，也不等于平台审核通过。

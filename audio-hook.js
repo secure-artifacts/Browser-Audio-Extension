@@ -1,9 +1,9 @@
 // byUS小序
-// Experimental PAGE-level constraints, NOT Chrome feature flags or OS audio settings.
+// PAGE-level constraints, NOT Chrome feature flags or OS audio settings.
 // Runs at document_start only when enabled. Reload is needed after changing the switch.
 (() => {
   "use strict";
-  const version = "1.2.0";
+  const version = "1.2.1";
   const wrapped = Symbol.for("byUSXiaoxu.audioCompat.v2");
   const diagnosticKey = Symbol.for("byUSXiaoxu.audioCompat.diagnostic");
   if (typeof globalThis[diagnosticKey] === "function") return;
@@ -11,6 +11,7 @@
   const records = new Set();
   const bindings = [];
   const fields = ["echoCancellation", "autoGainControl", "noiseSuppression"];
+  const desired = { echoCancellation: "remote-only", autoGainControl: false, noiseSuppression: false };
   const trackOwner = globalThis.MediaStreamTrack && MediaStreamTrack.prototype;
   const nativeSettings = trackOwner && trackOwner.getSettings;
   let lastError = null;
@@ -48,8 +49,10 @@
       if (track.muted || track.enabled === false) muted++;
       try {
         const settings = Reflect.apply(nativeSettings, track, []);
-        if (fields.some(key => settings[key] === true)) processing++;
-        else if (!fields.every(key => settings[key] === false)) unknown++;
+        // false means cancellation is OFF, not a successful echo-protection state.
+        // A generic true/all also does not prove that local mixed audio is preserved.
+        if (fields.some(key => settings[key] !== undefined && settings[key] !== desired[key])) processing++;
+        else if (!fields.every(key => settings[key] === desired[key])) unknown++;
       } catch { unknown++; }
     }
     return {
@@ -72,7 +75,7 @@
   function quietAudio(audio) {
     const result = audio && typeof audio === "object" ? copyDictionary(audio) : {};
     for (const field of fields) Object.defineProperty(result, field, {
-      value: { exact: false }, enumerable: true, configurable: true, writable: true
+      value: { exact: desired[field] }, enumerable: true, configurable: true, writable: true
     });
     if (Array.isArray(result.advanced)) {
       const advanced = result.advanced.map(item => {
@@ -80,7 +83,7 @@
         const clean = copyDictionary(item);
         for (const field of fields) {
           if (field in clean) Object.defineProperty(clean, field, {
-            value: { exact: false }, enumerable: true, configurable: true, writable: true
+            value: { exact: desired[field] }, enumerable: true, configurable: true, writable: true
           });
         }
         return clean;
